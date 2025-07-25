@@ -1,0 +1,190 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Core Banking System</title>
+  <style>
+    body { font-family: Arial, sans-serif; background: #f0f8ff; text-align: center; margin: 0; }
+    h1 { color: #2a7ae2; margin-top: 2em; }
+    .btn { font-size: 1.2em; margin: 1em; padding: 1em 2em; border: none; border-radius: 10px; background: #2a7ae2; color: white; cursor: pointer; transition: background 0.2s; }
+    .btn:hover { background: #1d5fa7; }
+    .form-section, .list-section { display: none; margin: 2em auto; max-width: 420px; background: #fff; padding: 2em; border-radius: 16px; box-shadow: 0 4px 16px #b3c6e0; }
+    .visible { display: block; }
+    input, select { font-size: 1em; margin: 0.5em 0; padding: 0.5em; width: 90%; border-radius: 5px; border: 1px solid #ccc; }
+    .account-list { text-align: left; margin-top: 1em; }
+    .account-item { background: #e3f1ff; margin: 0.5em 0; padding: 1em; border-radius: 8px; box-shadow: 0 2px 6px #d0e3fa; }
+    .msg { margin: 1em 0; font-weight: bold; }
+    .msg.success { color: #2a7ae2; }
+    .msg.error { color: #e22; }
+    .loading { color: #888; font-style: italic; }
+    @media (max-width: 600px) {
+      .form-section, .list-section { max-width: 98vw; padding: 1em; }
+      .btn { width: 90vw; margin: 0.5em 0; }
+    }
+  </style>
+</head>
+<body>
+  <h1>Core Banking System</h1>
+  <button class="btn" onclick="showSection('add')">Add Account</button>
+  <button class="btn" onclick="showSection('remove')">Remove Account</button>
+  <button class="btn" onclick="showSection('see')">See All Accounts</button>
+
+  <!-- Add Account Form -->
+  <div id="add-section" class="form-section">
+    <h2>Add Account</h2>
+    <form id="addForm">
+      <input type="text" placeholder="Customer ID" name="customerId" required><br>
+      <input type="text" placeholder="Account Number" name="accountNumber" required><br>
+      <select name="accountType" required>
+        <option value="">Account Type</option>
+        <option value="Savings">Savings</option>
+        <option value="Current">Current</option>
+      </select><br>
+      <input type="text" placeholder="Currency (e.g. USD)" name="currency" required><br>
+      <input type="number" placeholder="Balance" name="balance" required><br>
+      <select name="status" required>
+        <option value="">Status</option>
+        <option value="Active">Active</option>
+        <option value="Dormant">Dormant</option>
+      </select><br>
+      <input type="date" name="openingDate" required><br>
+      <button type="submit" class="btn">Add</button>
+    </form>
+    <div id="addMsg" class="msg"></div>
+  </div>
+
+  <!-- Remove Account Form -->
+  <div id="remove-section" class="form-section">
+    <h2>Remove Account</h2>
+    <form id="removeForm">
+      <input type="text" placeholder="Account ID to remove" name="accountId" required><br>
+      <button type="submit" class="btn" style="background:#e22;">Remove</button>
+    </form>
+    <div id="removeMsg" class="msg"></div>
+  </div>
+
+  <!-- See All Accounts List -->
+  <div id="see-section" class="list-section">
+    <h2>All Accounts</h2>
+    <button class="btn" onclick="fetchAccounts()">Refresh List</button>
+    <div id="accountsList" class="account-list"></div>
+    <div id="seeMsg" class="msg"></div>
+  </div>
+
+  <script>
+  document.addEventListener('DOMContentLoaded', function() {
+    const API_KEY = 'AKSHATKEY';
+    const API_URL = 'http://localhost:8080';
+
+    window.showSection = function(section) {
+      document.getElementById('add-section').style.display = 'none';
+      document.getElementById('remove-section').style.display = 'none';
+      document.getElementById('see-section').style.display = 'none';
+      document.getElementById('addMsg').textContent = '';
+      document.getElementById('removeMsg').textContent = '';
+      document.getElementById('seeMsg').textContent = '';
+      if(section === 'add') document.getElementById('add-section').style.display = 'block';
+      if(section === 'remove') document.getElementById('remove-section').style.display = 'block';
+      if(section === 'see') {
+        document.getElementById('see-section').style.display = 'block';
+        fetchAccounts();
+      }
+    }
+
+    // Add Account
+    document.getElementById('addForm').onsubmit = async function(e) {
+      e.preventDefault();
+      const form = e.target;
+      const data = Object.fromEntries(new FormData(form));
+      const msg = document.getElementById('addMsg');
+      msg.textContent = 'Adding...';
+      msg.className = 'msg loading';
+      try {
+        const res = await fetch(API_URL + '/accounts', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'x-api-key': API_KEY },
+          body: JSON.stringify(data)
+        });
+        const result = await res.json();
+        if(res.ok) {
+          msg.textContent = 'Account added!';
+          msg.className = 'msg success';
+          form.reset();
+          fetchAccounts();
+        } else {
+          msg.textContent = result.error || 'Error adding account.';
+          msg.className = 'msg error';
+        }
+      } catch (err) {
+        msg.textContent = 'Network error.';
+        msg.className = 'msg error';
+      }
+    };
+
+    // Remove Account
+    document.getElementById('removeForm').onsubmit = async function(e) {
+      e.preventDefault();
+      const form = e.target;
+      const accountId = form.accountId.value;
+      const msg = document.getElementById('removeMsg');
+      msg.textContent = 'Removing...';
+      msg.className = 'msg loading';
+      try {
+        const res = await fetch(API_URL + '/accounts/' + accountId, {
+          method: 'DELETE',
+          headers: { 'x-api-key': API_KEY }
+        });
+        const result = await res.json();
+        if(res.ok) {
+          msg.textContent = 'Account removed!';
+          msg.className = 'msg success';
+          form.reset();
+          fetchAccounts();
+        } else {
+          msg.textContent = result.error || 'Error removing account.';
+          msg.className = 'msg error';
+        }
+      } catch (err) {
+        msg.textContent = 'Network error.';
+        msg.className = 'msg error';
+      }
+    };
+
+    // See All Accounts
+    window.fetchAccounts = async function() {
+      const msg = document.getElementById('seeMsg');
+      msg.textContent = 'Loading...';
+      msg.className = 'msg loading';
+      try {
+        const res = await fetch(API_URL + '/accounts/all', {
+          headers: { 'x-api-key': API_KEY }
+        });
+        const accounts = await res.json();
+        const list = document.getElementById('accountsList');
+        if(Array.isArray(accounts) && accounts.length) {
+          list.innerHTML = accounts.map(acc => `
+            <div class="account-item">
+              <b>ID:</b> ${acc.accountId}<br>
+              <b>Number:</b> ${acc.accountNumber}<br>
+              <b>Type:</b> ${acc.accountType}<br>
+              <b>Currency:</b> ${acc.currency}<br>
+              <b>Balance:</b> ${acc.balance.amount} ${acc.balance.currency}<br>
+              <b>Status:</b> ${acc.status}<br>
+              <b>Opened:</b> ${acc.openingDate}
+            </div>
+          `).join('');
+          msg.textContent = '';
+        } else {
+          list.innerHTML = '<i>No accounts found.</i>';
+          msg.textContent = '';
+        }
+      } catch (err) {
+        document.getElementById('accountsList').innerHTML = '';
+        msg.textContent = 'Network error.';
+        msg.className = 'msg error';
+      }
+    }
+  });
+  </script>
+</body>
+</html> 

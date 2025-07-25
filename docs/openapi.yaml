@@ -1,0 +1,213 @@
+openapi: 3.0.0
+info:
+  title: Core Banking System API
+  version: 1.0.0
+  description: API to retrieve customer accounts or account details from the core banking system.
+servers:
+  - url: http://localhost:8080
+paths:
+  /accounts:
+    get:
+      security:
+        - ApiKeyAuth: []
+      summary: Retrieve customer accounts or account details
+      description: |
+        Retrieve a list of accounts for a customer or details for a specific account. Supports filtering, pagination, and error handling as per contract.
+      parameters:
+        - in: query
+          name: customerId
+          schema:
+            type: string
+          description: Customer ID to fetch accounts for (required if accountId not provided)
+        - in: query
+          name: accountId
+          schema:
+            type: string
+          description: Account ID to fetch details for (required if customerId not provided)
+        - in: query
+          name: accountType
+          schema:
+            type: string
+          description: Filter by account type (e.g., Savings, Current, Loan)
+        - in: query
+          name: status
+          schema:
+            type: string
+          description: Filter by account status (e.g., Active, Dormant, Closed)
+        - in: query
+          name: pageSize
+          schema:
+            type: integer
+            default: 10
+            minimum: 1
+            maximum: 100
+          description: Number of results per page
+        - in: query
+          name: pageNumber
+          schema:
+            type: integer
+            default: 1
+            minimum: 1
+          description: Page number
+        - in: query
+          name: force500
+          schema:
+            type: string
+          description: (Testing only) Set to 'true' to simulate a 500 Internal Server Error
+      responses:
+        '200':
+          description: Success
+          headers:
+            X-Total-Count:
+              schema:
+                type: integer
+              description: Total number of matching accounts
+          content:
+            application/json:
+              schema:
+                oneOf:
+                  - $ref: '#/components/schemas/AccountsListResponse'
+                  - $ref: '#/components/schemas/Account'
+              examples:
+                accountsList:
+                  summary: List of accounts
+                  value:
+                    totalCount: 2
+                    pageSize: 10
+                    pageNumber: 1
+                    accounts:
+                      - accountId: '001'
+                        accountNumber: 'XXXXXXXXXXXX3456'
+                        accountType: 'Savings'
+                        currency: 'USD'
+                        balance: { amount: 2500.00, currency: 'USD' }
+                        status: 'Active'
+                        openingDate: '2022-01-15'
+                      - accountId: '002'
+                        accountNumber: 'XXXXXXXXXXXX3456'
+                        accountType: 'Current'
+                        currency: 'USD'
+                        balance: { amount: 4800.00, currency: 'USD' }
+                        status: 'Dormant'
+                        openingDate: '2021-08-10'
+                account:
+                  summary: Single account
+                  value:
+                    accountId: '001'
+                    accountNumber: 'XXXXXXXXXXXX3456'
+                    accountType: 'Savings'
+                    currency: 'USD'
+                    balance: { amount: 2500.00, currency: 'USD' }
+                    status: 'Active'
+                    openingDate: '2022-01-15'
+        '400':
+          description: Bad Request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              examples:
+                missingParam:
+                  summary: Missing parameter
+                  value:
+                    errorCode: ERR_MISSING_PARAM
+                    message: Missing customerId or accountId
+                invalidParam:
+                  summary: Invalid parameter
+                  value:
+                    errorCode: ERR_INVALID_PARAM
+                    message: Invalid pageSize (1-100 allowed)
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                errorCode: ERR_UNAUTHORIZED
+                message: Missing or invalid API key
+        '403':
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                errorCode: ERR_FORBIDDEN
+                message: Not authorized to access this resource
+        '404':
+          description: Not Found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              examples:
+                customerNotFound:
+                  summary: Customer not found
+                  value:
+                    errorCode: ERR_CUSTOMER_NOT_FOUND
+                    message: Customer not found or has no accounts
+                accountNotFound:
+                  summary: Account not found
+                  value:
+                    errorCode: ERR_ACCOUNT_NOT_FOUND
+                    message: Account not found
+        '500':
+          description: Internal Server Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                errorCode: ERR_INTERNAL
+                message: Internal Server Error
+components:
+  securitySchemes:
+    ApiKeyAuth:
+      type: apiKey
+      in: header
+      name: x-api-key
+  schemas:
+    AccountsListResponse:
+      type: object
+      properties:
+        totalCount:
+          type: integer
+        pageSize:
+          type: integer
+        pageNumber:
+          type: integer
+        accounts:
+          type: array
+          items:
+            $ref: '#/components/schemas/Account'
+    Account:
+      type: object
+      properties:
+        accountId:
+          type: string
+        accountNumber:
+          type: string
+        accountType:
+          type: string
+        currency:
+          type: string
+        balance:
+          type: object
+          properties:
+            amount:
+              type: number
+            currency:
+              type: string
+        status:
+          type: string
+        openingDate:
+          type: string
+          format: date
+    ErrorResponse:
+      type: object
+      properties:
+        errorCode:
+          type: string
+        message:
+          type: string 
